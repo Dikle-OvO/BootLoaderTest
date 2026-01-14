@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "OLED.h"
+#include <math.h> // 必须包含，用于3D计算
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -34,10 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-// FPS 计算相关变量
-uint32_t frameCount = 0;   // 帧数计数器
-uint32_t lastTime = 0;     // 上一次记录的时间
-uint32_t fps = 0;          // 最终计算出的 FPS 值
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -71,6 +69,138 @@ void JumpToApplication(void) {
     //4.跳转到应用程序
     app_reset_handler();
   }
+}
+
+/* 动画变量定义 */
+// FPS
+uint32_t frameCount = 0;
+uint32_t lastTime = 0;
+uint32_t fps = 0;
+
+// 弹跳方块变量
+int box_x = 0, box_y = 0;
+int box_dir_x = 2, box_dir_y = 2; // 速度
+
+// 3D 立方体变量
+float cube_angle_x = 0;
+float cube_angle_y = 0;
+float cube_angle_z = 0;
+
+/* * 顶点定义逻辑：(Z= -10 后平面的四个点) -> (Z= +10 前平面的四个点)
+ * 顺序均为：左下 -> 右下 -> 右上 -> 左上 (逆时针环绕)
+ */
+// float vertices[8][3] = {
+//   // 后平面 (Index 0-3)
+//   {-10, -10, -10},
+//   { 10, -10, -10},
+//   { 10,  10, -10},
+//   {-10,  10, -10},
+//
+//   // 前平面 (Index 4-7)
+//   {-10, -10,  10},
+//   { 10, -10,  10},
+//   { 10,  10,  10},
+//   {-10,  10,  10}
+// };
+//
+// int edges[12][2] = {
+//   // 后平面 (Back Face)
+//   {0, 1}, {1, 2}, {2, 3}, {3, 0},
+//   // 前平面 (Front Face)
+//   {4, 5}, {5, 6}, {6, 7}, {7, 4},
+//   // 连接前后 (Connecting Lines)
+//   {0, 4}, {1, 5}, {2, 6}, {3, 7}
+// };
+
+/* * 3D 水晶之心模型数据
+ * 坐标系：X(左右), Y(上下), Z(前后)
+ */
+
+// 顶点数量：10个
+float vertices[10][3] = {
+  // --- 中轴线上的点 (前后面共用) ---
+  {  0.0f, -20.0f,   0.0f}, // 0: 底部尖端 (Bottom Tip)
+  {  0.0f,   5.0f,   0.0f}, // 1: 顶部中间凹陷 (Top Center)
+
+  // --- 前层 (Front Face, Z > 0) ---
+  {-12.0f,  15.0f,   6.0f}, // 2: 左上瓣 (Top Left Front)
+  { 12.0f,  15.0f,   6.0f}, // 3: 右上瓣 (Top Right Front)
+  {-18.0f,   0.0f,   6.0f}, // 4: 左侧宽 (Side Left Front)
+  { 18.0f,   0.0f,   6.0f}, // 5: 右侧宽 (Side Right Front)
+
+  // --- 后层 (Back Face, Z < 0) ---
+  {-12.0f,  15.0f,  -6.0f}, // 6: 左上瓣 (Back)
+  { 12.0f,  15.0f,  -6.0f}, // 7: 右上瓣 (Back)
+  {-18.0f,   0.0f,  -6.0f}, // 8: 左侧宽 (Back)
+  { 18.0f,   0.0f,  -6.0f}  // 9: 右侧宽 (Back)
+};
+
+// 连线数量：16条
+int edges[16][2] = {
+  // --- 前面轮廓 (Front Face Outline) ---
+  {1, 2}, {2, 4}, {4, 0}, // 左半边
+  {0, 5}, {5, 3}, {3, 1}, // 右半边
+
+  // --- 后面轮廓 (Back Face Outline) ---
+  {1, 6}, {6, 8}, {8, 0}, // 左半边
+  {0, 9}, {9, 7}, {7, 1}, // 右半边
+
+  // --- 前后连接线 (Connectors) ---
+  {2, 6}, // 连接左上瓣
+  {3, 7}, // 连接右上瓣
+  {4, 8}, // 连接左侧
+  {5, 9}  // 连接右侧
+};
+
+// ----------------------------------------------------------------
+// 动画: 3D 旋转立方体
+// ----------------------------------------------------------------
+void Animation_3DCube(void)
+{
+    float rot_points[8][3]; // 旋转后的点
+    int scr_points[8][2];   // 屏幕上的 2D 点
+    int i;
+
+    // 旋转速度
+    cube_angle_x += 0.05;
+    cube_angle_y += 0.08;
+    cube_angle_z += 0.03;
+
+    for(i=0; i<10; i++) {
+        float x = vertices[i][0];
+        float y = vertices[i][1];
+        float z = vertices[i][2];
+        float temp_x, temp_y, temp_z;
+
+        // 绕 X 轴旋转
+        temp_y = y * cos(cube_angle_x) - z * sin(cube_angle_x);
+        temp_z = y * sin(cube_angle_x) + z * cos(cube_angle_x);
+        y = temp_y; z = temp_z;
+
+        // 绕 Y 轴旋转
+        temp_x = x * cos(cube_angle_y) + z * sin(cube_angle_y);
+        temp_z = -x * sin(cube_angle_y) + z * cos(cube_angle_y);
+        x = temp_x; z = temp_z;
+
+        // 绕 Z 轴旋转
+        temp_x = x * cos(cube_angle_z) - y * sin(cube_angle_z);
+        temp_y = x * sin(cube_angle_z) + y * cos(cube_angle_z);
+        x = temp_x; y = temp_y;
+
+        // 3D 透视投影到 2D
+        // z + 60 相当于把物体推远，防止除以0
+        float scale = 100 / (z + 60);
+        scr_points[i][0] = (int)(x * scale) + 64; // +64 移到屏幕中心 X
+        scr_points[i][1] = (int)(y * scale) + 36; // +36 移到屏幕中心 Y
+    }
+
+    // 绘制连线
+    for(i=0; i<16; i++) {
+        OLED_DrawLine(
+            scr_points[edges[i][0]][0], scr_points[edges[i][0]][1],
+            scr_points[edges[i][1]][0], scr_points[edges[i][1]][1]
+        );
+    }
 }
 
 /* USER CODE END 0 */
@@ -115,6 +245,9 @@ int main(void)
   lastTime = HAL_GetTick();
 
   // JumpToApplication();
+  uint32_t switch_timer = 0;
+  uint8_t anim_mode = 1; // 0: 方块, 1: 立方体
+  Init_Heart_Mesh();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -122,37 +255,46 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    /* --- 开始一帧画面的绘制 --- */
 
-    // 1. 全屏清空 (最耗时操作，模拟全屏刷新)
-    // 这会写入 128 * 8 = 1024 字节数据，是测试 I2C 速度的关键
+    /* USER CODE BEGIN 3 */
+    /* --- 1. 清空显存 (极快) --- */
     OLED_Clear();
 
-    // 2. 显示静态文字
-    OLED_ShowString(1, 1, "STM32 HAL I2C");
-    OLED_ShowString(2, 1, "FPS Test Mode");
+    /* --- 2. 绘制 UI 信息 --- */
+    OLED_ShowString(1, 1, "STM32 G4");
+    OLED_ShowString(1, 11, "FPS:");
+    OLED_ShowNum(1, 14, fps, 3);
 
-    // 3. 显示当前 FPS 数值
-    OLED_ShowString(3, 1, "FPS:");
-    OLED_ShowNum(3, 5, fps, 3); // 显示 3 位数字
+    /* --- 3. 绘制动画 --- */
+    if (anim_mode == 0) {
+      OLED_ShowString(2, 11, "BOUNCE");
 
-    /* --- 一帧绘制结束 --- */
-
-
-    /* --- FPS 计算逻辑 --- */
-    frameCount++; // 每跑完一次循环，帧数+1
-
-    // 检查是否过了 1000 毫秒 (1秒)
-    if (HAL_GetTick() - lastTime >= 1000)
-    {
-      fps = frameCount;       // 保存当前的计数值为 FPS
-      frameCount = 0;         // 清零计数器
-      lastTime = HAL_GetTick(); // 重置计时起点
-
-      // 如果你有串口，也可以在这里打印到电脑看
-      // printf("Current FPS: %d\r\n", fps);
+    } else {
+      OLED_ShowString(2, 11, "3D CUBE");
+      // Animation_3DCube();
+      // Animation_BeatingHeart();
+      Animation_RefinedHeart();
     }
-    /* USER CODE BEGIN 3 */
+
+    /* --- 4. 刷新到屏幕 (Burst Write) --- */
+    OLED_Refresh_Gram();
+    /* --- 5. 逻辑控制 --- */
+    // FPS 计算
+    frameCount++;
+    if (HAL_GetTick() - lastTime >= 1000) {
+      fps = frameCount;
+      frameCount = 0;
+      lastTime = HAL_GetTick();
+    }
+
+    // 每 5 秒切换一次动画
+    // if (HAL_GetTick() - switch_timer > 5000) {
+    //   anim_mode = !anim_mode;
+    //   switch_timer = HAL_GetTick();
+    //   // 清屏过渡一下
+    //   OLED_Clear();
+    //   OLED_Refresh_Gram();
+    // }
   }
   /* USER CODE END 3 */
 }
