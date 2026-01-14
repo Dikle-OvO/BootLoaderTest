@@ -78,3 +78,9 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_OBJCOPY} -O ihex ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.elf ${CMAKE_BINARY_DIR}/${CMAKE_PROJECT_NAME}.hex
         COMMENT "Generating ${PROJECT_NAME}.hex"
 )
+
+add_subdirectory(cmake/Mylib) # 添加子CMakeList所在的目录位置
+
+target_link_libraries(${CMAKE_PROJECT_NAME} # 引入受CMake管理的库
+        MyLib
+)

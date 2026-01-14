@@ -18,11 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "i2c.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "OLED.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +34,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+// FPS 计算相关变量
+uint32_t frameCount = 0;   // 帧数计数器
+uint32_t lastTime = 0;     // 上一次记录的时间
+uint32_t fps = 0;          // 最终计算出的 FPS 值
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -99,8 +104,16 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);
+
+  // 1. 初始化 OLED
+  OLED_Init();
+
+  // 2. 记录当前时间
+  lastTime = HAL_GetTick();
+
   // JumpToApplication();
   /* USER CODE END 2 */
 
@@ -109,7 +122,36 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+    /* --- 开始一帧画面的绘制 --- */
 
+    // 1. 全屏清空 (最耗时操作，模拟全屏刷新)
+    // 这会写入 128 * 8 = 1024 字节数据，是测试 I2C 速度的关键
+    OLED_Clear();
+
+    // 2. 显示静态文字
+    OLED_ShowString(1, 1, "STM32 HAL I2C");
+    OLED_ShowString(2, 1, "FPS Test Mode");
+
+    // 3. 显示当前 FPS 数值
+    OLED_ShowString(3, 1, "FPS:");
+    OLED_ShowNum(3, 5, fps, 3); // 显示 3 位数字
+
+    /* --- 一帧绘制结束 --- */
+
+
+    /* --- FPS 计算逻辑 --- */
+    frameCount++; // 每跑完一次循环，帧数+1
+
+    // 检查是否过了 1000 毫秒 (1秒)
+    if (HAL_GetTick() - lastTime >= 1000)
+    {
+      fps = frameCount;       // 保存当前的计数值为 FPS
+      frameCount = 0;         // 清零计数器
+      lastTime = HAL_GetTick(); // 重置计时起点
+
+      // 如果你有串口，也可以在这里打印到电脑看
+      // printf("Current FPS: %d\r\n", fps);
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
