@@ -26,6 +26,7 @@
 #include "stdio.h"
 #include "OLED.h"
 #include <math.h> // 必须包含，用于3D计算
+#include "u8g2_port.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,7 +47,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+u8g2_t u8g2; // 定义 u8g2 全局句柄
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,68 +90,68 @@ float cube_angle_z = 0;
 /* * 顶点定义逻辑：(Z= -10 后平面的四个点) -> (Z= +10 前平面的四个点)
  * 顺序均为：左下 -> 右下 -> 右上 -> 左上 (逆时针环绕)
  */
-// float vertices[8][3] = {
-//   // 后平面 (Index 0-3)
-//   {-10, -10, -10},
-//   { 10, -10, -10},
-//   { 10,  10, -10},
-//   {-10,  10, -10},
-//
-//   // 前平面 (Index 4-7)
-//   {-10, -10,  10},
-//   { 10, -10,  10},
-//   { 10,  10,  10},
-//   {-10,  10,  10}
-// };
-//
-// int edges[12][2] = {
-//   // 后平面 (Back Face)
-//   {0, 1}, {1, 2}, {2, 3}, {3, 0},
-//   // 前平面 (Front Face)
-//   {4, 5}, {5, 6}, {6, 7}, {7, 4},
-//   // 连接前后 (Connecting Lines)
-//   {0, 4}, {1, 5}, {2, 6}, {3, 7}
-// };
+float vertices[8][3] = {
+  // 后平面 (Index 0-3)
+  {-10, -10, -10},
+  { 10, -10, -10},
+  { 10,  10, -10},
+  {-10,  10, -10},
+
+  // 前平面 (Index 4-7)
+  {-10, -10,  10},
+  { 10, -10,  10},
+  { 10,  10,  10},
+  {-10,  10,  10}
+};
+
+int edges[12][2] = {
+  // 后平面 (Back Face)
+  {0, 1}, {1, 2}, {2, 3}, {3, 0},
+  // 前平面 (Front Face)
+  {4, 5}, {5, 6}, {6, 7}, {7, 4},
+  // 连接前后 (Connecting Lines)
+  {0, 4}, {1, 5}, {2, 6}, {3, 7}
+};
 
 /* * 3D 水晶之心模型数据
  * 坐标系：X(左右), Y(上下), Z(前后)
  */
 
-// 顶点数量：10个
-float vertices[10][3] = {
-  // --- 中轴线上的点 (前后面共用) ---
-  {  0.0f, -20.0f,   0.0f}, // 0: 底部尖端 (Bottom Tip)
-  {  0.0f,   5.0f,   0.0f}, // 1: 顶部中间凹陷 (Top Center)
-
-  // --- 前层 (Front Face, Z > 0) ---
-  {-12.0f,  15.0f,   6.0f}, // 2: 左上瓣 (Top Left Front)
-  { 12.0f,  15.0f,   6.0f}, // 3: 右上瓣 (Top Right Front)
-  {-18.0f,   0.0f,   6.0f}, // 4: 左侧宽 (Side Left Front)
-  { 18.0f,   0.0f,   6.0f}, // 5: 右侧宽 (Side Right Front)
-
-  // --- 后层 (Back Face, Z < 0) ---
-  {-12.0f,  15.0f,  -6.0f}, // 6: 左上瓣 (Back)
-  { 12.0f,  15.0f,  -6.0f}, // 7: 右上瓣 (Back)
-  {-18.0f,   0.0f,  -6.0f}, // 8: 左侧宽 (Back)
-  { 18.0f,   0.0f,  -6.0f}  // 9: 右侧宽 (Back)
-};
-
-// 连线数量：16条
-int edges[16][2] = {
-  // --- 前面轮廓 (Front Face Outline) ---
-  {1, 2}, {2, 4}, {4, 0}, // 左半边
-  {0, 5}, {5, 3}, {3, 1}, // 右半边
-
-  // --- 后面轮廓 (Back Face Outline) ---
-  {1, 6}, {6, 8}, {8, 0}, // 左半边
-  {0, 9}, {9, 7}, {7, 1}, // 右半边
-
-  // --- 前后连接线 (Connectors) ---
-  {2, 6}, // 连接左上瓣
-  {3, 7}, // 连接右上瓣
-  {4, 8}, // 连接左侧
-  {5, 9}  // 连接右侧
-};
+// // 顶点数量：10个
+// float vertices[10][3] = {
+//   // --- 中轴线上的点 (前后面共用) ---
+//   {  0.0f, -20.0f,   0.0f}, // 0: 底部尖端 (Bottom Tip)
+//   {  0.0f,   5.0f,   0.0f}, // 1: 顶部中间凹陷 (Top Center)
+//
+//   // --- 前层 (Front Face, Z > 0) ---
+//   {-12.0f,  15.0f,   6.0f}, // 2: 左上瓣 (Top Left Front)
+//   { 12.0f,  15.0f,   6.0f}, // 3: 右上瓣 (Top Right Front)
+//   {-18.0f,   0.0f,   6.0f}, // 4: 左侧宽 (Side Left Front)
+//   { 18.0f,   0.0f,   6.0f}, // 5: 右侧宽 (Side Right Front)
+//
+//   // --- 后层 (Back Face, Z < 0) ---
+//   {-12.0f,  15.0f,  -6.0f}, // 6: 左上瓣 (Back)
+//   { 12.0f,  15.0f,  -6.0f}, // 7: 右上瓣 (Back)
+//   {-18.0f,   0.0f,  -6.0f}, // 8: 左侧宽 (Back)
+//   { 18.0f,   0.0f,  -6.0f}  // 9: 右侧宽 (Back)
+// };
+//
+// // 连线数量：16条
+// int edges[16][2] = {
+//   // --- 前面轮廓 (Front Face Outline) ---
+//   {1, 2}, {2, 4}, {4, 0}, // 左半边
+//   {0, 5}, {5, 3}, {3, 1}, // 右半边
+//
+//   // --- 后面轮廓 (Back Face Outline) ---
+//   {1, 6}, {6, 8}, {8, 0}, // 左半边
+//   {0, 9}, {9, 7}, {7, 1}, // 右半边
+//
+//   // --- 前后连接线 (Connectors) ---
+//   {2, 6}, // 连接左上瓣
+//   {3, 7}, // 连接右上瓣
+//   {4, 8}, // 连接左侧
+//   {5, 9}  // 连接右侧
+// };
 
 // ----------------------------------------------------------------
 // 动画: 3D 旋转立方体
@@ -166,7 +167,7 @@ void Animation_3DCube(void)
     cube_angle_y += 0.08;
     cube_angle_z += 0.03;
 
-    for(i=0; i<10; i++) {
+    for(i=0; i<8; i++) {
         float x = vertices[i][0];
         float y = vertices[i][1];
         float z = vertices[i][2];
@@ -195,7 +196,7 @@ void Animation_3DCube(void)
     }
 
     // 绘制连线
-    for(i=0; i<16; i++) {
+    for(i=0; i<12; i++) {
         OLED_DrawLine(
             scr_points[edges[i][0]][0], scr_points[edges[i][0]][1],
             scr_points[edges[i][1]][0], scr_points[edges[i][1]][1]
@@ -239,7 +240,34 @@ int main(void)
   HAL_GPIO_TogglePin(GPIOC,GPIO_PIN_6);
 
   // 1. 初始化 OLED
-  OLED_Init();
+  // OLED_Init();
+  u8g2_Init_STM32(&u8g2);
+  while (1)
+  {
+    // --- 开始一帧 ---
+
+    // 1. 清空缓冲区 (类似于之前的 memset)
+    u8g2_ClearBuffer(&u8g2);
+
+    // 2. 绘制内容
+
+    // 设置字体 (u8g2 有几千种字体，ncen 表示不包含生僻字，B 表示粗体，14是高度)
+    u8g2_SetFont(&u8g2, u8g2_font_ncenB14_tr);
+    u8g2_DrawStr(&u8g2, 0, 15, "Hello World");
+
+    // 画个空心框
+    u8g2_DrawFrame(&u8g2, 0, 20, 50, 30);
+
+    // 画个实心圆
+    u8g2_DrawDisc(&u8g2, 100, 40, 10, U8G2_DRAW_ALL);
+
+    // 3. 发送缓冲区到屏幕 (类似于之前的 OLED_Refresh_Gram)
+    u8g2_SendBuffer(&u8g2);
+
+    // --- 结束一帧 ---
+
+    HAL_Delay(100);
+  }
 
   // 2. 记录当前时间
   lastTime = HAL_GetTick();
@@ -271,9 +299,9 @@ int main(void)
 
     } else {
       OLED_ShowString(2, 11, "3D CUBE");
-      // Animation_3DCube();
+      Animation_3DCube();
       // Animation_BeatingHeart();
-      Animation_RefinedHeart();
+      // Animation_RefinedHeart();
     }
 
     /* --- 4. 刷新到屏幕 (Burst Write) --- */

@@ -58,7 +58,6 @@ void OLED_Clear(void)
 // 显示字符：修改内存
 void OLED_ShowChar(uint8_t Line, uint8_t Column, char Char)
 {
-    uint8_t i;
     uint8_t *pSrc = (uint8_t *)OLED_F8x16[Char - ' ']; // 获取字模数据指针
 
     // 计算显存偏移
